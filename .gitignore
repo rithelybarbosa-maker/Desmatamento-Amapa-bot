@@ -1,0 +1,25 @@
+# Ambientes virtuais
+venv/
+env/
+.venv/
+
+# Senhas e configurações locais
+.env
+
+# Banco de dados local
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Arquivos gerados dinamicamente
+logs/
+kml/*.kml
+mapas/*.html
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# macOS
+.DS_Store
