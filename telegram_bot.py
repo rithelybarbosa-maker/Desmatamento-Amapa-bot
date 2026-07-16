@@ -123,7 +123,7 @@ def _alerta_row_to_line(alerta) -> str:
     
     classe = a.get("classe_label", "Alerta")
     emoji = "🔴" if "Desmatamento" in classe else "⚠️"
-    if "Mineração" in class:
+    if "Mineração" in classe:
         emoji = "⛏️"
 
     return (
