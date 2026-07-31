@@ -66,8 +66,12 @@ def _load_geojson() -> bool:
         logger.warning("GeoJSON indisponível — usando apenas centróides")
         return False
 
-    try:
-        from shapely.geometry import shape as sh_shape
+        try:
+            from shapely.geometry import shape as sh_shape
+            has_shapely = True
+        except ImportError:
+            logger.warning("Shapely não está instalado. Usando apenas centróides como fallback.")
+            has_shapely = False
 
         with open(MUNICIPIOS_GEO, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -82,15 +86,17 @@ def _load_geojson() -> bool:
                 or props.get("NOME")
                 or "Desconhecido"
             )
-            try:
-                geom = sh_shape(feat["geometry"])
-                loaded.append((nome, geom))
-            except Exception as e:
-                logger.debug(f"Falha ao carregar geometria de {nome}: {e}")
+            if has_shapely:
+                try:
+                    geom = sh_shape(feat["geometry"])
+                    loaded.append((nome, geom))
+                except Exception as e:
+                    logger.debug(f"Falha ao carregar geometria de {nome}: {e}")
 
         _polygons = loaded
-        logger.info(f"GeoJSON carregado: {len(_polygons)} municípios")
-        return True
+        if has_shapely and _polygons:
+            logger.info(f"GeoJSON carregado: {len(_polygons)} municípios")
+        return len(_polygons) > 0
 
     except Exception as e:
         logger.error(f"Erro ao ler GeoJSON: {e}")

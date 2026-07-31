@@ -112,7 +112,7 @@ def print_banner() -> None:
 
 def check_requirements() -> bool:
     required = [
-        "telegram", "requests", "shapely",
+        "telegram", "requests",
         "simplekml", "folium", "dotenv", "pytz",
     ]
     missing = []
