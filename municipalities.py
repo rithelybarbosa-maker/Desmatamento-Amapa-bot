@@ -66,6 +66,7 @@ def _load_geojson() -> bool:
         logger.warning("GeoJSON indisponível — usando apenas centróides")
         return False
 
+    try:
         try:
             from shapely.geometry import shape as sh_shape
             has_shapely = True
