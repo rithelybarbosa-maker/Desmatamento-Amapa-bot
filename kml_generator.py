@@ -7,8 +7,12 @@ from pathlib import Path
 from typing import List, Dict, Any, Union
 
 import simplekml
-from shapely.wkt import loads as wkt_loads
-from shapely.geometry import Polygon, MultiPolygon
+try:
+    from shapely.wkt import loads as wkt_loads
+    from shapely.geometry import Polygon, MultiPolygon
+    SHAPELY_AVAILABLE = True
+except ImportError:
+    SHAPELY_AVAILABLE = False
 
 from config import KML_DIR
 
@@ -18,8 +22,6 @@ logger = logging.getLogger(__name__)
 def _add_polygon_to_kml(kml_obj: Union[simplekml.Kml, simplekml.Folder], name: str, geom_wkt: str, description: str) -> None:
     """Carrega uma geometria WKT e a adiciona como polígono no KML."""
     try:
-        geom = wkt_loads(geom_wkt)
-        
         # Define estilo vermelho semi-transparente para o polígono
         poly_style = simplekml.Style()
         poly_style.polystyle.color = "500000ff"   # vermelho com transparência (AABBGGRR)
@@ -27,21 +29,42 @@ def _add_polygon_to_kml(kml_obj: Union[simplekml.Kml, simplekml.Folder], name: s
         poly_style.linestyle.color = "ff0000ff"   # vermelho opaco para a linha externa
         poly_style.linestyle.width = 2
 
-        if isinstance(geom, Polygon):
-            # Obtém coordenadas exteriores
-            coords = [(lon, lat) for lon, lat, *_ in geom.exterior.coords]
-            poly = kml_obj.newpolygon(name=name, description=description, outerboundaryis=coords)
-            poly.style = poly_style
-        elif isinstance(geom, MultiPolygon):
-            # Para multipolígono, cria uma pasta ou adiciona cada um deles
-            for i, poly_part in enumerate(geom.geoms, 1):
-                coords = [(lon, lat) for lon, lat, *_ in poly_part.exterior.coords]
-                poly = kml_obj.newpolygon(name=f"{name} (Parte {i})", description=description, outerboundaryis=coords)
+        if SHAPELY_AVAILABLE:
+            geom = wkt_loads(geom_wkt)
+            if isinstance(geom, Polygon):
+                # Obtém coordenadas exteriores
+                coords = [(lon, lat) for lon, lat, *_ in geom.exterior.coords]
+                poly = kml_obj.newpolygon(name=name, description=description, outerboundaryis=coords)
                 poly.style = poly_style
+            elif isinstance(geom, MultiPolygon):
+                # Para multipolígono, cria uma pasta ou adiciona cada um deles
+                for i, poly_part in enumerate(geom.geoms, 1):
+                    coords = [(lon, lat) for lon, lat, *_ in poly_part.exterior.coords]
+                    poly = kml_obj.newpolygon(name=f"{name} (Parte {i})", description=description, outerboundaryis=coords)
+                    poly.style = poly_style
+            else:
+                # Fallback para ponto caso não seja polígono
+                lon, lat = geom.centroid.x, geom.centroid.y
+                kml_obj.newpoint(name=name, description=description, coords=[(lon, lat)])
         else:
-            # Fallback para ponto caso não seja polígono
-            lon, lat = geom.centroid.x, geom.centroid.y
-            kml_obj.newpoint(name=name, description=description, coords=[(lon, lat)])
+            # Fallback sem Shapely usando parsing manual simples de WKT para obter coordenadas
+            import re
+            # Encontra todos os pares de coordenadas (-xxx.xx -yy.yy) na string WKT
+            coords_str = re.findall(r"[-+]?\d*\.\d+|\d+", geom_wkt)
+            # Agrupa de 2 em 2 (lon, lat)
+            coords = []
+            for i in range(0, len(coords_str) - 1, 2):
+                try:
+                    coords.append((float(coords_str[i]), float(coords_str[i+1])))
+                except ValueError:
+                    continue
+            
+            if "POLYGON" in geom_wkt.upper() and len(coords) >= 3:
+                poly = kml_obj.newpolygon(name=name, description=description, outerboundaryis=coords)
+                poly.style = poly_style
+            elif len(coords) >= 1:
+                # Cria ponto no primeiro par
+                kml_obj.newpoint(name=name, description=description, coords=[coords[0]])
             
     except Exception as e:
         logger.error(f"Erro ao converter WKT para KML: {e}")

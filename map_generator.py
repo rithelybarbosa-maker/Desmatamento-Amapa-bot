@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 import folium
-from shapely.wkt import loads as wkt_loads
+try:
+    from shapely.wkt import loads as wkt_loads
+    SHAPELY_AVAILABLE = True
+except ImportError:
+    SHAPELY_AVAILABLE = False
+
 
 from config import MAPAS_DIR
 
@@ -55,12 +60,38 @@ def generate_map(alertas: List[Dict[str, Any]]) -> Optional[Path]:
                 continue
 
             try:
-                geom = wkt_loads(wkt)
+                if SHAPELY_AVAILABLE:
+                    geom = wkt_loads(wkt)
+                    geom_interface = geom.__geo_interface__
+                else:
+                    # Fallback de parsing de WKT para GeoJSON se shapely estiver ausente
+                    import re
+                    coords_str = re.findall(r"[-+]?\d*\.\d+|\d+", wkt)
+                    coords = []
+                    for i in range(0, len(coords_str) - 1, 2):
+                        try:
+                            coords.append([float(coords_str[i]), float(coords_str[i+1])])
+                        except ValueError:
+                            continue
+                    
+                    if "POLYGON" in wkt.upper() and len(coords) >= 3:
+                        # Folium GeoJson polygon precisa de uma lista de anéis de coordenadas [[[lon, lat], ...]]
+                        geom_interface = {
+                            "type": "Polygon",
+                            "coordinates": [coords]
+                        }
+                    elif len(coords) >= 1:
+                        geom_interface = {
+                            "type": "Point",
+                            "coordinates": coords[0]
+                        }
+                    else:
+                        continue
                 
                 # Monta a estrutura GeoJSON
                 geojson_feature = {
                     "type": "Feature",
-                    "geometry": geom.__geo_interface__,
+                    "geometry": geom_interface,
                     "properties": {}
                 }
 
