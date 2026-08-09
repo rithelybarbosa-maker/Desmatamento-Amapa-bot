@@ -4,7 +4,7 @@ map_generator.py — Geração de mapas interativos Folium com polígonos de des
 
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import folium
 try:

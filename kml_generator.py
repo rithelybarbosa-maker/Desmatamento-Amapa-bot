@@ -4,7 +4,7 @@ kml_generator.py — Geração de arquivos KML para polígonos de desmatamento
 
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Optional
 
 import simplekml
 try:
