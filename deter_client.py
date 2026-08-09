@@ -8,7 +8,12 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
 import requests
-from shapely.geometry import shape
+try:
+    from shapely.geometry import shape
+    SHAPELY_AVAILABLE = True
+except ImportError:
+    SHAPELY_AVAILABLE = False
+
 
 from config import AMAPA_BBOX_STR
 
@@ -75,12 +80,40 @@ def fetch_deter_alerts(day_range: int = 7) -> List[Dict[str, Any]]:
             if gid is None:
                 continue
 
-            # Parse da Geometria via Shapely
+            # Parse da Geometria
             try:
-                geom = shape(geom_dict)
-                geometria_wkt = geom.wkt
-                lon_centro = geom.centroid.x
-                lat_centro = geom.centroid.y
+                if SHAPELY_AVAILABLE:
+                    geom = shape(geom_dict)
+                    geometria_wkt = geom.wkt
+                    lon_centro = geom.centroid.x
+                    lat_centro = geom.centroid.y
+                else:
+                    # Fallback simples se Shapely não estiver disponível:
+                    # Tenta estimar centroide a partir das coordenadas do GeoJSON
+                    coords_type = geom_dict.get("type", "")
+                    coords = geom_dict.get("coordinates", [])
+                    
+                    # Extração simples das coordenadas dependendo do tipo
+                    all_pts = []
+                    def extract_pts(lst):
+                        if not lst:
+                            return
+                        if isinstance(lst[0], (int, float)):
+                            all_pts.append(lst)
+                        else:
+                            for item in lst:
+                                extract_pts(item)
+                    
+                    extract_pts(coords)
+                    if all_pts:
+                        lon_centro = sum(p[0] for p in all_pts) / len(all_pts)
+                        lat_centro = sum(p[1] for p in all_pts) / len(all_pts)
+                    else:
+                        lon_centro = -51.5
+                        lat_centro = 1.5 # Centro aproximado do AP
+                        
+                    # Cria WKT dummy simplificado
+                    geometria_wkt = f"POINT ({lon_centro} {lat_centro})"
             except Exception as e:
                 logger.error(f"Erro ao processar geometria do alerta DETER GID={gid}: {e}")
                 continue
