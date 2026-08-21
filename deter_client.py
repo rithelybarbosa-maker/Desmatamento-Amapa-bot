@@ -46,17 +46,16 @@ def fetch_deter_alerts(day_range: int = 7) -> List[Dict[str, Any]]:
     since_date = (datetime.utcnow() - timedelta(days=day_range)).strftime("%Y-%m-%d")
     
     # Filtro CQL: UF Amapá e data a partir da data de corte
-    cql_filter = f"uf='AMAPÁ' AND date >= '{since_date}'"
+    cql_filter = f"uf='AMAPÁ' AND view_date >= '{since_date}'"
     
     params = {
         "service": "WFS",
         "version": "2.0.0",
         "request": "GetFeature",
-        "typeName": "deter_public",
+        "typeName": "deter-amz:deter_amz",
         "CQL_FILTER": cql_filter,
         "outputFormat": "application/json",
-        "count": 100,
-        "sortBy": "gid",
+        "count": 100
     }
 
     try:
@@ -119,14 +118,14 @@ def fetch_deter_alerts(day_range: int = 7) -> List[Dict[str, Any]]:
                 continue
 
             # Determinação da Área em Hectares
-            # O DETER costuma retornar a área em km² (areasqkm) ou hectares (area_ha)
-            areasqkm = props.get("areasqkm")
+            # O DETER retorna a area em km² (areamunkm)
+            areamunkm = props.get("areamunkm")
             area_ha = props.get("area_ha")
             
             if area_ha is not None:
                 area_ha = float(area_ha)
-            elif areasqkm is not None:
-                area_ha = float(areasqkm) * 100.0  # 1 km² = 100 ha
+            elif areamunkm is not None:
+                area_ha = float(areamunkm) * 100.0  # 1 km² = 100 ha
             else:
                 area_ha = 0.0
 
@@ -134,20 +133,20 @@ def fetch_deter_alerts(day_range: int = 7) -> List[Dict[str, Any]]:
             emoji, label = get_class_info(classname)
 
             # Data de detecção
-            raw_date = props.get("date", "")
-            # O DETER retorna date no formato YYYY-MM-DD. Adicionamos a hora padrão UTC
+            raw_date = props.get("view_date", "")
+            # O DETER retorna view_date no formato YYYY-MM-DD. Adicionamos a hora padrão UTC
             if raw_date:
                 data_deteccao = f"{raw_date}T12:00:00"
             else:
                 data_deteccao = datetime.utcnow().isoformat()
 
             alertas.append({
-                "gid_deter":        int(gid),
+                "gid_deter":        gid, # gid do DETER pode conter sufixos como '_hist'
                 "classe":           classname,
                 "classe_label":     label,
                 "area_ha":          area_ha,
                 "data_deteccao":    data_deteccao,
-                "municipio":        props.get("municipio"),
+                "municipio":        props.get("municipality"),
                 "uf":               props.get("uf", "AP"),
                 "latitude_centro":  lat_centro,
                 "longitude_centro": lon_centro,

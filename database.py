@@ -5,7 +5,7 @@ database.py — Gerenciamento do banco de dados SQLite para o bot de desmatament
 import logging
 import sqlite3
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Union
 
 from config import DB_PATH
 
@@ -31,7 +31,7 @@ def initialize_db() -> None:
             -- Tabela de alertas de desmatamento (DETER)
             CREATE TABLE IF NOT EXISTS alertas (
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                gid_deter           INTEGER UNIQUE,        -- ID original do DETER
+                gid_deter           TEXT UNIQUE,           -- ID original do DETER (pode ser texto como '9_hist')
                 classe              TEXT    NOT NULL,      -- Ex: DESMATAMENTO_CR
                 classe_label        TEXT    NOT NULL,      -- Ex: Desmatamento com Solo Exposto
                 area_ha             REAL    NOT NULL,      -- Área em hectares
@@ -110,14 +110,14 @@ def _seed_areas_protegidas() -> None:
 
 # ─── Operações de Alertas ─────────────────────────────────────────────────────
 
-def alerta_exists(gid_deter: int) -> bool:
+def alerta_exists(gid_deter: Union[int, str]) -> bool:
     with get_connection() as conn:
-        row = conn.execute("SELECT 1 FROM alertas WHERE gid_deter = ?", (gid_deter,)).fetchone()
+        row = conn.execute("SELECT 1 FROM alertas WHERE gid_deter = ?", (str(gid_deter),)).fetchone()
         return row is not None
 
 
 def insert_alerta(
-    gid_deter: int,
+    gid_deter: Union[int, str],
     classe: str,
     classe_label: str,
     area_ha: float,
